@@ -54,6 +54,11 @@ class XSQFile(object):
         else:
             eta = None
 
+        # reading in one location at a time should be slower than
+        # just accessing the entire table at once, but this way, we
+        # avoid the memory required and this code is much simpler for
+        # writing out the tags interlaced.
+
         n = 0
         for i, region in enumerate(self.fileobj[sample]):
             locations = []

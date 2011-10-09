@@ -9,4 +9,6 @@ if [ -e `dirname $0`/env/hdf5/lib ]; then
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`dirname "$0"`/env/hdf5/lib
 fi
 
-xsqutils/xsq.py "$@"
+REAL=`python -c 'import os,sys;print os.path.realpath(sys.argv[1])' "$0"`
+DIR=`dirname "$REAL"`
+$DIR/xsqutils/xsq.py "$@"

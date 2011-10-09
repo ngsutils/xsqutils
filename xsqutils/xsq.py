@@ -197,13 +197,15 @@ def xsq_convert_all(filename, tags=None, force=False):
         sys.stderr.write('Sample: %s... ' % sample)
 
         outname = os.path.join(os.path.dirname(filename), '%s.fastq.gz' % sample)
+        tmpname = os.path.join(os.path.dirname(filename), '.tmp.%s.fastq.gz' % sample)
 
         if force or not os.path.exists(outname):
             sys.stderr.write('\n')
-            out = gzip.open(outname, 'w')
+            out = gzip.open(tmpname, 'w')
             for name, seq, quals in xsq.fetch(sample, tags):
                 out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
             out.close()
+            os.rename(tmpname, outname)
         else:
             sys.stderr.write('File exists! Not overwriting without -f\n')
     xsq.close()

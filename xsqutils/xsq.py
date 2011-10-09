@@ -39,6 +39,14 @@ class XSQFile(object):
     def get_samples(self):
         return self._samples
 
+    def get_read_count(self, sample):
+        if not sample in self.fileobj:
+            raise "Invalid sample name: %s" % sample
+        count = 0
+        for region in self.fileobj[sample]:
+            count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
+        return count
+
     def fetch(self, sample, tags=None):
         if not tags:
             tags = [t for t in  self.tags]
@@ -163,7 +171,11 @@ def xsq_list(filename):
     print ''
     print 'Samples: '
     for sample in xsq.get_samples():
-        print '    %s' % (sample)
+        count_l = list(str(xsq.get_read_count(sample)))
+        for i in range(len(count_l))[::-3][1:]:
+            count_l.insert(i + 1, ',')
+
+        print '    %s (%s)' % (sample, ''.join(count_l))
     xsq.close()
 
 

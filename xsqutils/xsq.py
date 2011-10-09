@@ -62,11 +62,10 @@ class XSQFile(object):
         else:
             eta = None
 
-        # reading in one location at a time should be slower than
-        # just accessing the entire table at once, but this way, we
-        # avoid the memory required and this code is much simpler for
-        # writing out the tags interlaced. (I also suspect that h5py reads
-        # the whole table into memory anyway)
+        # Reads each region into memory at a time by tag. Then yields the sequences
+        # in order so that the tags are interlaced.
+        #
+        # This is slightly faster than just reading in one at a time.
 
         n = 0
         for i, region in enumerate(self.fileobj[sample]):

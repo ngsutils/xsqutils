@@ -73,18 +73,18 @@ class XSQFile(object):
             for y, x in self.fileobj[sample][region]['Fragments']['yxLocation']:
                 locations.append((y, x))
 
-            for i, (y, x) in enumerate(locations):
-                if eta:
-                    n += 1
-                    eta.print_status(n)
+            vals = {}
+            for tag in tags:
+                vals[tag] = []
+                if self.tags[tag].is_colorspace:
+                    k = 'ColorCallQV'
+                else:
+                    k = 'BaseCallQV'
 
-                for tag in tags:
-                    if self.tags[tag].is_colorspace:
-                        k = 'ColorCallQV'
-                    else:
-                        k = 'BaseCallQV'
-
-                    basequals = self.fileobj[sample][region][tag][k][i]
+                for (y, x), basequals in zip(locations, self.fileobj[sample][region][tag][k]):
+                    if eta:
+                        n += 1
+                        eta.print_status(n)
 
                     calls = []
                     if self.tags[tag].prefix:
@@ -106,7 +106,11 @@ class XSQFile(object):
                     if len(tags) > 1:
                         name = name + ' %s' % (tag)
 
-                    yield(name, ''.join(calls), quals)
+                    vals[tag].append((name, ''.join(calls), quals))
+
+            for i in xrange(len(locations)):
+                for tag in tags:
+                    yield(vals[tag][i])
         if eta:
             eta.done()
 

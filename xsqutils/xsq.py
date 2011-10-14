@@ -162,7 +162,7 @@ class XSQFile(object):
                 self.dump(child, parent[key], indent + 1)
 
 
-def xsq_list(filename):
+def xsq_list(filename, count=False):
     xsq = XSQFile(filename)
     print 'Tags: '
     for tag in xsq.tags:
@@ -174,11 +174,13 @@ def xsq_list(filename):
     print ''
     print 'Samples: '
     for sample in xsq.get_samples():
-        count_l = list(str(xsq.get_read_count(sample)))
-        for i in range(len(count_l))[::-3][1:]:
-            count_l.insert(i + 1, ',')
-
-        print '    %s (%s)' % (sample, ''.join(count_l))
+        if count:
+            count_l = list(str(xsq.get_read_count(sample)))
+            for i in range(len(count_l))[::-3][1:]:
+                count_l.insert(i + 1, ',')
+            print '    %s (%s)' % (sample, ''.join(count_l))
+        else:
+            print '    %s' % (sample, )
     xsq.close()
 
 
@@ -222,6 +224,8 @@ def usage():
 Commands:
     info      - Lists all of the data associated with the XSQ file
     list      - Lists the samples and tags (R3/F3/etc) present in the file
+        Options:
+          -c        Show the number of reads present for each tag
     convert   - Converts XSQ samples and fragments to FASTQ format
         Options:
           -a        Convert all samples (saves to sample_name.fastq.gz)
@@ -257,6 +261,7 @@ if __name__ == '__main__':
     fname = None
     last = None
     force = False
+    count = False
 
     for arg in sys.argv[1:]:
         if not cmd and arg in ['list', 'convert', 'info']:
@@ -269,6 +274,8 @@ if __name__ == '__main__':
             last = None
         elif arg in ['-t', '-n']:
             last = arg
+        elif arg == '-c':
+            count = True
         elif arg == '-f':
             force = True
         elif arg == '-a':
@@ -282,7 +289,7 @@ if __name__ == '__main__':
         usage()
 
     if cmd == 'list':
-        xsq_list(fname)
+        xsq_list(fname,count)
     elif cmd == 'info':
         xsq_info(fname)
     elif cmd == 'convert':

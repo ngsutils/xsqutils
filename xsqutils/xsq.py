@@ -63,9 +63,9 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False):
         if force or not os.path.exists(outname):
             sys.stderr.write('\n')
             if noz:
-                out = gzip.open(tmpname, 'w')
-            else:
                 out = open(tmpname, 'w')
+            else:
+                out = gzip.open(tmpname, 'w')
                 
             for name, seq, quals in xsq.fetch(sample, tags):
                 if suffix:

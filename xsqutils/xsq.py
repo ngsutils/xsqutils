@@ -52,8 +52,13 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False):
     for sample in xsq.get_samples():
         sys.stderr.write('Sample: %s... ' % sample)
 
-        outname = os.path.join(os.path.dirname(filename), '%s.fastq.gz' % sample)
-        tmpname = os.path.join(os.path.dirname(filename), '.tmp.%s.fastq.gz' % sample)
+        if noz:
+            outname = os.path.join(os.path.dirname(filename), '%s.fastq' % sample)
+            tmpname = os.path.join(os.path.dirname(filename), '.tmp.%s.fastq' % sample)
+        else:
+            outname = os.path.join(os.path.dirname(filename), '%s.fastq.gz' % sample)
+            tmpname = os.path.join(os.path.dirname(filename), '.tmp.%s.fastq.gz' % sample)
+            
 
         if force or not os.path.exists(outname):
             sys.stderr.write('\n')

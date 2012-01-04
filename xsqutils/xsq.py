@@ -58,14 +58,15 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
 def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False):
     xsq = XSQFile(filename)
     for sample in xsq.get_samples():
-        sys.stderr.write('Sample: %s... ' % sample)
-
         fname = sample
 
         if usedesc:
             fname = xsq.get_sample_desc(sample)
             if not fname:
                 fname = sample
+
+        sys.stderr.write('Sample: %s... ' % fname)
+
 
         if noz:
             outname = '%s.fastq' % fname

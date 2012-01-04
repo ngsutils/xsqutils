@@ -195,7 +195,7 @@ if __name__ == '__main__':
         xsq_info(fname)
     elif cmd == 'convert':
         if all:
-            xsq_convert_all(fname, tags, force, suffix, noz, usedesc)
+            xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads)
         elif sample_name:
             xsq_convert(fname, sample_name, tags, suffix)
         else:

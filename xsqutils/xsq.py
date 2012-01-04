@@ -9,7 +9,7 @@ import gzip
 
 from xsqutils import XSQFile
 
-def xsq_list(filename, count=False):
+def xsq_list(filename, count=False, minreads=-1):
     xsq = XSQFile(filename)
     print 'Tags: '
     for tag in xsq.tags:
@@ -21,11 +21,19 @@ def xsq_list(filename, count=False):
     print ''
     print 'Samples: '
     for sample in xsq.get_samples():
+        desc = xsq.get_sample_desc(sample)
+        
         if count:
-            count_l = list(str(xsq.get_read_count(sample)))
-            for i in range(len(count_l))[::-3][1:]:
-                count_l.insert(i + 1, ',')
-            print '    %s (%s)' % (sample, ''.join(count_l))
+            readcount = xsq.get_read_count(sample)
+            if readcount > minreads:
+                count_l = list(str(readcount))
+                for i in range(len(count_l))[::-3][1:]:
+                    count_l.insert(i + 1, ',')
+            
+                if desc:
+                    print '    %s (%s) %s' % (sample, desc, ''.join(count_l))
+                else:
+                    print '    %s %s' % (sample, ''.join(count_l))
         else:
             print '    %s' % (sample, )
     xsq.close()
@@ -87,7 +95,9 @@ Commands:
     info      - Lists all of the data associated with the XSQ file
     list      - Lists the samples and tags (R3/F3/etc) present in the file
         Options:
-          -c        Show the number of reads present for each tag
+          -c           Show the number of reads present for each tag
+          -min {val}   Hide samples that have less than {val} reads
+          
     convert   - Converts XSQ samples and fragments to FASTQ format
         Options:
           -a           Convert all samples (saves to sample_name.fastq.gz)
@@ -127,6 +137,7 @@ if __name__ == '__main__':
     count = False
     suffix = None
     noz = False
+    minreads = 0
 
     for arg in sys.argv[1:]:
         if not cmd and arg in ['list', 'convert', 'info']:
@@ -140,7 +151,10 @@ if __name__ == '__main__':
         elif last == '-t':
             tags .append(arg)
             last = None
-        elif arg in ['-t', '-n', '-s']:
+        elif last == '-min':
+            minreads = int(arg)
+            last = None
+        elif arg in ['-t', '-n', '-s', '-min']:
             last = arg
         elif arg == '-noz':
             noz = True
@@ -159,7 +173,7 @@ if __name__ == '__main__':
         usage()
 
     if cmd == 'list':
-        xsq_list(fname,count)
+        xsq_list(fname,count,minreads)
     elif cmd == 'info':
         xsq_info(fname)
     elif cmd == 'convert':

@@ -12,5 +12,5 @@ if [ -e $DIR/env/hdf5/lib ]; then
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$DIR/env/hdf5/lib
 fi
 
-export PYTHONPATH="."
+export PYTHONPATH="$DIR"
 $DIR/xsqutils/xsq.py "$@"

@@ -55,17 +55,24 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
     xsq.close()
 
 
-def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False):
+def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False):
     xsq = XSQFile(filename)
     for sample in xsq.get_samples():
         sys.stderr.write('Sample: %s... ' % sample)
 
+        fname = sample
+
+        if usedesc:
+            fname = xsq.get_sample_desc(sample)
+            if not fname:
+                fname = sample
+
         if noz:
-            outname = os.path.join(os.path.dirname(filename), '%s.fastq' % sample)
-            tmpname = os.path.join(os.path.dirname(filename), '.tmp.%s.fastq' % sample)
+            outname = '%s.fastq' % fname
+            tmpname = '.tmp.%s.fastq' % fname
         else:
-            outname = os.path.join(os.path.dirname(filename), '%s.fastq.gz' % sample)
-            tmpname = os.path.join(os.path.dirname(filename), '.tmp.%s.fastq.gz' % sample)
+            outname = '%s.fastq.gz' % fname
+            tmpname = '.tmp.%s.fastq.gz' % fname
             
 
         if force or not os.path.exists(outname):
@@ -101,6 +108,7 @@ Commands:
     convert   - Converts XSQ samples and fragments to FASTQ format
         Options:
           -a           Convert all samples (saves to sample_name.fastq.gz)
+          -desc        Use descriptions for the sample name (if -a used)
           -f           Overwrite existing files
           -n name      Convert only sample "name" (writes to stdout)
                        (can be only one, written uncompressed)
@@ -138,6 +146,7 @@ if __name__ == '__main__':
     suffix = None
     noz = False
     minreads = 0
+    usedesc = False
 
     for arg in sys.argv[1:]:
         if not cmd and arg in ['list', 'convert', 'info']:
@@ -164,6 +173,8 @@ if __name__ == '__main__':
             force = True
         elif arg == '-a':
             all = True
+        elif arg == '-desc':
+            usedesc = True
         elif not fname and os.path.exists(arg):
             fname = arg
         else:
@@ -178,7 +189,7 @@ if __name__ == '__main__':
         xsq_info(fname)
     elif cmd == 'convert':
         if all:
-            xsq_convert_all(fname, tags, force, suffix, noz)
+            xsq_convert_all(fname, tags, force, suffix, noz, usedesc)
         elif sample_name:
             xsq_convert(fname, sample_name, tags, suffix)
         else:

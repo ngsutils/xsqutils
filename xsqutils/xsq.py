@@ -55,9 +55,12 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
     xsq.close()
 
 
-def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False):
+def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0):
     xsq = XSQFile(filename)
     for sample in xsq.get_samples():
+        if xsq.get_read_count(sample) < minreads:
+            continue
+            
         fname = sample
 
         if usedesc:
@@ -110,6 +113,8 @@ Commands:
         Options:
           -a           Convert all samples (saves to sample_name.fastq.gz)
           -desc        Use descriptions for the sample name (if -a used)
+          -min {val}   Don't convert samples that have less than {val} reads
+
           -f           Overwrite existing files
           -n name      Convert only sample "name" (writes to stdout)
                        (can be only one, written uncompressed)

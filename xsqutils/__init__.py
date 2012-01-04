@@ -38,9 +38,11 @@ class XSQFile(object):
         descidx = 0
         
         for name,val in self.fileobj['RunMetadata']['LibraryDetails'].attrs.iteritems():
-            if val == 'Description':
-                break
-            descidx += 1
+            if name[:6] == 'FIELD_' and name[-5:] == '_NAME':
+                if val == 'Description':
+                    break
+                descidx += 1
+            
         
         for row in self.fileobj['RunMetadata']['LibraryDetails']:
             spl = sample.split('_')

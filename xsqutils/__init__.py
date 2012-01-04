@@ -30,6 +30,23 @@ class XSQFile(object):
 
     def get_samples(self):
         return self._samples
+    
+    def get_sample_desc(self,sample):
+        if sample not in self._samples:
+            return None
+        
+        descidx = 0
+        
+        for name,val in self.fileobj['RunMetadata']['LibraryDetails'].attrs.iteritems():
+            if val == 'Description':
+                break
+            descidx += 1
+        
+        for row in self.fileobj['RunMetadata']['LibraryDetails']:
+            spl = sample.split('_')
+            if spl[0] == row[0]:
+                return row[descidx].strip()
+                    
 
     def get_read_count(self, sample):
         if not sample in self.fileobj:

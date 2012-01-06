@@ -71,7 +71,10 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
             if not fname:
                 fname = sample
 
-        sys.stderr.write('Sample: %s... ' % fname)
+        if fname == sample:
+            sys.stderr.write('Sample: %s... ' % fname)
+        else:
+            sys.stderr.write('Sample: (%s) %s... ' % (sample,fname))
 
 
         if noz:
@@ -119,12 +122,12 @@ Commands:
               -desc          Use descriptions for the sample name
               -f             Overwrite existing files
               -min {val}     Skip samples that have less than {val} reads
+              -noz           Don't compress the output FASTQ files with gzip
               -fsuf {val}    Add suffix to file name
               -unclassified  Export "Unclassified" library (usually skipped)
           
           -n name      Convert only sample "name" (writes to stdout)
                        (can be only one, written uncompressed)
-          -noz         Don't compress the output FASTQ files with gzip
           -s suffix    Append a suffix to all read names
           -t tag       Convert only this tag (can be more than one)
                        If more than one tag is given, the sequences for

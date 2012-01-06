@@ -55,9 +55,12 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
     xsq.close()
 
 
-def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0):
+def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix='', unclassified=False):
     xsq = XSQFile(filename)
     for sample in xsq.get_samples():
+        if sample == 'Unclassified' and not unclassified:
+            continue
+            
         if xsq.get_read_count(sample) < minreads:
             continue
             
@@ -72,11 +75,11 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
 
 
         if noz:
-            outname = '%s.fastq' % fname
-            tmpname = '.tmp.%s.fastq' % fname
+            outname = '%s%s.fastq' % (fname,fsuffix)
+            tmpname = '.tmp.%s%s.fastq' % (fname,fsuffix)
         else:
-            outname = '%s.fastq.gz' % fname
-            tmpname = '.tmp.%s.fastq.gz' % fname
+            outname = '%s%s.fastq.gz' % (fname,fsuffix)
+            tmpname = '.tmp.%s%s.fastq.gz' % (fname,fsuffix)
             
 
         if force or not os.path.exists(outname):
@@ -112,10 +115,13 @@ Commands:
     convert   - Converts XSQ samples and fragments to FASTQ format
         Options:
           -a           Convert all samples (saves to sample_name.fastq.gz)
-          -desc        Use descriptions for the sample name (if -a used)
-          -min {val}   Don't convert samples that have less than {val} reads
-
-          -f           Overwrite existing files
+              [-a additional options]
+              -desc          Use descriptions for the sample name
+              -f             Overwrite existing files
+              -min {val}     Skip samples that have less than {val} reads
+              -fsuf {val}    Add suffix to file name
+              -unclassified  Export "Unclassified" library (usually skipped)
+          
           -n name      Convert only sample "name" (writes to stdout)
                        (can be only one, written uncompressed)
           -noz         Don't compress the output FASTQ files with gzip
@@ -153,6 +159,8 @@ if __name__ == '__main__':
     noz = False
     minreads = 0
     usedesc = False
+    fsuf = None
+    unclassified = False
 
     for arg in sys.argv[1:]:
         if not cmd and arg in ['list', 'convert', 'info']:
@@ -169,7 +177,10 @@ if __name__ == '__main__':
         elif last == '-min':
             minreads = int(arg)
             last = None
-        elif arg in ['-t', '-n', '-s', '-min']:
+        elif last == '-fsuf':
+            fsuf = arg
+            last = None
+        elif arg in ['-t', '-n', '-s', '-min', '-fsuf']:
             last = arg
         elif arg == '-noz':
             noz = True
@@ -181,6 +192,8 @@ if __name__ == '__main__':
             all = True
         elif arg == '-desc':
             usedesc = True
+        elif arg == '-unclassified':
+            unclassified = True
         elif not fname and os.path.exists(arg):
             fname = arg
         else:
@@ -195,7 +208,7 @@ if __name__ == '__main__':
         xsq_info(fname)
     elif cmd == 'convert':
         if all:
-            xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads)
+            xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads, fsuf, unclassified)
         elif sample_name:
             xsq_convert(fname, sample_name, tags, suffix)
         else:

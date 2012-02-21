@@ -9,6 +9,7 @@ import gzip
 
 from xsqutils import XSQFile
 
+
 def xsq_list(filename, count=False, minreads=-1):
     xsq = XSQFile(filename)
     print 'Tags: '
@@ -22,14 +23,14 @@ def xsq_list(filename, count=False, minreads=-1):
     print 'Samples: '
     for sample in xsq.get_samples():
         desc = xsq.get_sample_desc(sample)
-        
+
         if count:
             readcount = xsq.get_read_count(sample)
             if readcount > minreads:
                 count_l = list(str(readcount))
                 for i in range(len(count_l))[::-3][1:]:
                     count_l.insert(i + 1, ',')
-            
+
                 if desc:
                     print '    %s (%s) %s' % (sample, desc, ''.join(count_l))
                 else:
@@ -60,10 +61,10 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
     for sample in xsq.get_samples():
         if sample == 'Unclassified' and not unclassified:
             continue
-            
+
         if xsq.get_read_count(sample) < minreads:
             continue
-            
+
         fname = sample
 
         if usedesc:
@@ -74,16 +75,14 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
         if fname == sample:
             sys.stderr.write('Sample: %s... ' % fname)
         else:
-            sys.stderr.write('Sample: (%s) %s... ' % (sample,fname))
-
+            sys.stderr.write('Sample: (%s) %s... ' % (sample, fname))
 
         if noz:
-            outname = '%s%s.fastq' % (fname,fsuffix)
-            tmpname = '.tmp.%s%s.fastq' % (fname,fsuffix)
+            outname = '%s%s.fastq' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.fastq' % (fname, fsuffix)
         else:
-            outname = '%s%s.fastq.gz' % (fname,fsuffix)
-            tmpname = '.tmp.%s%s.fastq.gz' % (fname,fsuffix)
-            
+            outname = '%s%s.fastq.gz' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.fastq.gz' % (fname, fsuffix)
 
         if force or not os.path.exists(outname):
             sys.stderr.write('\n')
@@ -91,7 +90,7 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
                 out = open(tmpname, 'w')
             else:
                 out = gzip.open(tmpname, 'w')
-                
+
             for name, seq, quals in xsq.fetch(sample, tags):
                 if suffix:
                     out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
@@ -114,7 +113,7 @@ Commands:
         Options:
           -c           Show the number of reads present for each tag
           -min {val}   Hide samples that have less than {val} reads
-          
+
     convert   - Converts XSQ samples and fragments to FASTQ format
         Options:
           -a           Convert all samples (saves to sample_name.fastq.gz)
@@ -125,7 +124,7 @@ Commands:
               -noz           Don't compress the output FASTQ files with gzip
               -fsuf {val}    Add suffix to file name
               -unclassified  Export "Unclassified" library (usually skipped)
-          
+
           -n name      Convert only sample "name" (writes to stdout)
                        (can be only one, written uncompressed)
           -s suffix    Append a suffix to all read names
@@ -206,7 +205,7 @@ if __name__ == '__main__':
         usage()
 
     if cmd == 'list':
-        xsq_list(fname,count,minreads)
+        xsq_list(fname, count, minreads)
     elif cmd == 'info':
         xsq_info(fname)
     elif cmd == 'convert':

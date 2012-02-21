@@ -161,7 +161,7 @@ if __name__ == '__main__':
     noz = False
     minreads = 0
     usedesc = False
-    fsuf = None
+    fsuf = ''
     unclassified = False
 
     for arg in sys.argv[1:]:

@@ -56,7 +56,7 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
     xsq.close()
 
 
-def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix='', unclassified=False):
+def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False):
     xsq = XSQFile(filename)
     for sample in xsq.get_samples():
         if sample == 'Unclassified' and not unclassified:
@@ -66,6 +66,8 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
             continue
 
         fname = sample
+        if not fsuffix:
+            fsuffix = ''
 
         if usedesc:
             fname = xsq.get_sample_desc(sample)
@@ -161,7 +163,7 @@ if __name__ == '__main__':
     noz = False
     minreads = 0
     usedesc = False
-    fsuf = ''
+    fsuf = None
     unclassified = False
 
     for arg in sys.argv[1:]:

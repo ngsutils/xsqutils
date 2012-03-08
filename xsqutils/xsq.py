@@ -6,8 +6,33 @@ Converts XSQ files to FASTQ format
 import os
 import sys
 import gzip
+import re
 
 from xsqutils import XSQFile
+
+
+def pretty_number(n):
+    count_l = list(str(n))
+    for i in range(len(count_l))[::-3][1:]:
+        count_l.insert(i + 1, ',')
+    return ''.join(count_l)
+
+
+def natural_sort(ar):
+    to_sort = []
+    for item in ar:
+        spl = re.split('(\d+)', ar)
+        l2 = []
+        for el in spl:
+            try:
+                n = int(item)
+            except:
+                n = item
+            l2.append(n)
+        to_sort.append((l2, item))
+
+    to_sort.sort()
+    return [x[1] for x in to_sort]
 
 
 def xsq_list(filename, count=False, minreads=-1):
@@ -21,20 +46,18 @@ def xsq_list(filename, count=False, minreads=-1):
             print '    %s[nt]' % (tag,)
     print ''
     print 'Samples: '
-    for sample in xsq.get_samples():
+    for sample in natural_sort(xsq.get_samples()):
         desc = xsq.get_sample_desc(sample)
 
         if count:
             readcount = xsq.get_read_count(sample)
             if readcount > minreads:
-                count_l = list(str(readcount))
-                for i in range(len(count_l))[::-3][1:]:
-                    count_l.insert(i + 1, ',')
+                pn = pretty_number(readcount)
 
                 if desc:
-                    print '    %s (%s) %s' % (sample, desc, ''.join(count_l))
+                    print '    %s (%s) %s' % (sample, desc, pn)
                 else:
-                    print '    %s %s' % (sample, ''.join(count_l))
+                    print '    %s %s' % (sample, pn)
         else:
             print '    %s' % (sample, )
     xsq.close()
@@ -58,7 +81,7 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
 
 def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False):
     xsq = XSQFile(filename)
-    for sample in xsq.get_samples():
+    for sample in natural_sort(xsq.get_samples()):
         if sample == 'Unclassified' and not unclassified:
             continue
 

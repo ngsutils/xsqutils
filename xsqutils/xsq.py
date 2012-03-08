@@ -178,7 +178,7 @@ if __name__ == '__main__':
     sample_name = None
     tags = []
     all = False
-    fname = None
+    fnames = []
     last = None
     force = False
     count = False
@@ -221,23 +221,28 @@ if __name__ == '__main__':
             usedesc = True
         elif arg == '-unclassified':
             unclassified = True
-        elif not fname and os.path.exists(arg):
-            fname = arg
+        elif os.path.exists(arg):
+            fnames.append(arg)
         else:
             print 'Unknown argument: %s' % arg
 
-    if not cmd or not fname:
+    if not cmd or not fnames:
         usage()
 
-    if cmd == 'list':
-        xsq_list(fname, count, minreads)
-    elif cmd == 'info':
-        xsq_info(fname)
-    elif cmd == 'convert':
-        if all:
-            xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads, fsuf, unclassified)
-        elif sample_name:
-            xsq_convert(fname, sample_name, tags, suffix)
-        else:
-            sys.stderr.write('Missing argument! Must specify "-a" or "-n sample"\n\n')
-            usage()
+    for fname in fnames:
+        sys.stderr.write('[%s]\n' % fname)
+        if cmd == 'list':
+            xsq_list(fname, count, minreads)
+        elif cmd == 'info':
+            xsq_info(fname)
+        elif cmd == 'convert':
+            if all:
+                xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads, fsuf, unclassified)
+            elif sample_name:
+                if len(fnames) > 1:
+                    sys.stderr.write('Too many files given! Must only convert one file at a time in this mode!\n\n')
+                    usage()
+                xsq_convert(fname, sample_name, tags, suffix)
+            else:
+                sys.stderr.write('Missing argument! Must specify "-a" or "-n sample"\n\n')
+                usage()

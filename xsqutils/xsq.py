@@ -21,13 +21,13 @@ def pretty_number(n):
 def natural_sort(ar):
     to_sort = []
     for item in ar:
-        spl = re.split('(\d+)', ar)
+        spl = re.split('(\d+)', item)
         l2 = []
         for el in spl:
             try:
-                n = int(item)
+                n = int(el)
             except:
-                n = item
+                n = el
             l2.append(n)
         to_sort.append((l2, item))
 

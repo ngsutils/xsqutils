@@ -10,6 +10,7 @@ try:
 except:
     ETA = None
 
+
 class XSQFile(object):
     def __init__(self, fname):
         self.fname = fname
@@ -30,25 +31,23 @@ class XSQFile(object):
 
     def get_samples(self):
         return self._samples
-    
-    def get_sample_desc(self,sample):
+
+    def get_sample_desc(self, sample):
         if sample not in self._samples:
             return None
-        
+
         descidx = 0
-        
-        for name,val in self.fileobj['RunMetadata']['LibraryDetails'].attrs.iteritems():
+
+        for name, val in self.fileobj['RunMetadata']['LibraryDetails'].attrs.iteritems():
             if name[:6] == 'FIELD_' and name[-5:] == '_NAME':
                 if val == 'Description':
                     break
                 descidx += 1
-            
-        
+
         for row in self.fileobj['RunMetadata']['LibraryDetails']:
             spl = sample.split('_')
             if spl[0] == row[0]:
                 return row[descidx].strip()
-                    
 
     def get_read_count(self, sample):
         if not sample in self.fileobj:
@@ -89,8 +88,12 @@ class XSQFile(object):
                 vals[tag] = []
                 if self.tags[tag].is_colorspace:
                     k = 'ColorCallQV'
+                    bases = '0123'
+                    wildcard = '.'
                 else:
                     k = 'BaseCallQV'
+                    bases = 'ACGT'
+                    wildcard = 'N'
 
                 for (y, x), basequals in zip(locations, self.fileobj[sample][region][tag][k]):
                     if eta:
@@ -103,11 +106,11 @@ class XSQFile(object):
 
                     quals = []
                     for byte in basequals:
-                        call = str(byte & 0x03)
+                        call = bases[byte & 0x03]
                         qual = byte >> 2
 
                         if qual == 63:
-                            call = '.'
+                            call = wildcard
                             qual = 0
 
                         calls.append(call)

@@ -135,12 +135,12 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
                 sys.stderr.write(' Too few reads (%s)\n' % count)
                 continue
 
-            sys.stderr.write('\n')
-
             sample_files[sample] = []
             for region in xsq.get_regions(sample):
                 sample_files[sample].append(tmpname % region)
                 jobs.append((xsq, sample, region, tmpname % region, noz))
+
+            sys.stderr.write('%s regions\n' % len(sample_files[sample]))
 
         else:
             sys.stderr.write('File exists! Not overwriting without -f\n')

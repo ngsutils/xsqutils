@@ -1,6 +1,5 @@
 import sys
 import collections
-import time
 
 import h5py
 
@@ -58,6 +57,54 @@ class XSQFile(object):
             count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
         return count
 
+    def get_regions(self, sample):
+        return self.fileobj[sample].keys()
+
+    def fetch_region(self, sample, region, tags=None):
+        locations = []
+        for y, x in self.fileobj[sample][region]['Fragments']['yxLocation']:
+            locations.append((y, x))
+
+        vals = {}
+        for tag in tags:
+            vals[tag] = []
+            if self.tags[tag].is_colorspace:
+                k = 'ColorCallQV'
+                bases = '0123'
+                wildcard = '.'
+            else:
+                k = 'BaseCallQV'
+                bases = 'ACGT'
+                wildcard = 'N'
+
+            for (y, x), basequals in zip(locations, self.fileobj[sample][region][tag][k][:]):
+                name = '%s_%s_%s' % (int(region), y, x)
+                if len(tags) > 1:
+                    name = name + ' %s' % (tag)
+
+                calls = []
+                if self.tags[tag].prefix:
+                    calls.append(self.tags[tag].prefix)
+
+                quals = []
+                for byte in basequals:
+                    call = bases[byte & 0x03]
+                    qual = byte >> 2
+
+                    if qual == 63:
+                        call = wildcard
+                        qual = 0
+
+                    calls.append(call)
+                    quals.append(qual)
+
+                vals[tag].append((name, ''.join(calls), quals))
+                #yield (name, ''.join(calls), quals)
+
+        for i in xrange(len(locations)):
+            for tag in tags:
+                yield(vals[tag][i])
+
     def fetch(self, sample, tags=None, quiet=False):
         if not tags:
             tags = [t for t in  self.tags]
@@ -65,7 +112,6 @@ class XSQFile(object):
         if not sample in self.fileobj:
             raise "Invalid sample name: %s" % sample
 
-        region_count = len(self.fileobj[sample])
         if ETA and not quiet:
             count = 0
             for region in self.fileobj[sample]:
@@ -80,58 +126,15 @@ class XSQFile(object):
         # This is slightly faster than just reading in one at a time.
 
         n = 0
-        start = time.time()
+
         for region in self.fileobj[sample]:
-            locations = []
-            for y, x in self.fileobj[sample][region]['Fragments']['yxLocation']:
-                eta.print_status(n,extra="Getting locations for region: %s / %s" % (region, region_count)) 
-                locations.append((y, x))
-
-            vals = {}
-            for tag in tags:
-                vals[tag] = []
-                if self.tags[tag].is_colorspace:
-                    k = 'ColorCallQV'
-                    bases = '0123'
-                    wildcard = '.'
-                else:
-                    k = 'BaseCallQV'
-                    bases = 'ACGT'
-                    wildcard = 'N'
-
-                for (y, x), basequals in zip(locations, self.fileobj[sample][region][tag][k][:]):
-                    name = '%s_%s_%s' % (int(region), y, x)
-                    if len(tags) > 1:
-                        name = name + ' %s' % (tag)
-
-                    if eta:
-                        n += 1
-                        elapsed = time.time() - start
-                        
-                        eta.print_status(n, extra='%s (%.2f reads/sec)' % (name, float(n) / elapsed))
-
-                    calls = []
-                    if self.tags[tag].prefix:
-                        calls.append(self.tags[tag].prefix)
-
-                    quals = []
-                    for byte in basequals:
-                        call = bases[byte & 0x03]
-                        qual = byte >> 2
-
-                        if qual == 63:
-                            call = wildcard
-                            qual = 0
-
-                        calls.append(call)
-                        quals.append(qual)
-
-                    vals[tag].append((name, ''.join(calls), quals))
-                    #yield (name, ''.join(calls), quals)
-
-            for i in xrange(len(locations)):
-                for tag in tags:
-                    yield(vals[tag][i])
+            if eta:
+                eta.print_status(n, extra="Getting locations for region: %s" % (region))
+            for tup in self.fetch_region(sample, region, tags, eta):
+                if eta:
+                    n += 1
+                    eta.print_status(n, extra=tup[0])
+                yield tup
         if eta:
             eta.done()
 

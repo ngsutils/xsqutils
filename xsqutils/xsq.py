@@ -82,26 +82,8 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
     xsq.close()
 
 
-def _write_xsq_region(xsq, sample, region, tmpname, noz):
-    sys.stderr.write('%s %s starting [%s]\n' % (sample, region, threading.current_thread))
-    if noz:
-        out = open(tmpname, 'w')
-    else:
-        out = gzip.open(tmpname, 'w')
-
-    for name, seq, quals in xsq.fetch_region(sample, region, tags):
-        if suffix:
-            out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
-        else:
-            out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
-    out.close()
-
-
 def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False, procs=1):
     xsq = XSQFile(filename)
-
-    jobs = []
-    sample_files = {}
 
     for sample in natural_sort(xsq.get_samples()):
         fname = sample
@@ -120,10 +102,12 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
 
         if noz:
             outname = '%s%s.fastq' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.%%s.fastq' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.fastq' % (fname, fsuffix)
+            out = open(tmpname, 'w')
         else:
             outname = '%s%s.fastq.gz' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.%%s.fastq.gz' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.fastq.gz' % (fname, fsuffix)
+            out = gzip.open(tmpname, 'w')
 
         if force or not os.path.exists(outname):
             if sample == 'Unclassified' and not unclassified:
@@ -135,41 +119,17 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
                 sys.stderr.write(' Too few reads (%s)\n' % count)
                 continue
 
-            sample_files[sample] = []
             for region in xsq.get_regions(sample):
-                sample_files[sample].append(tmpname % region)
-                jobs.append((xsq, sample, region, tmpname % region, noz))
-
-            sys.stderr.write('%s regions\n' % len(sample_files[sample]))
+                for name, seq, quals in xsq.fetch_region(sample, region, tags):
+                    if suffix:
+                        out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
+                    else:
+                        out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
 
         else:
             sys.stderr.write('File exists! Not overwriting without -f\n')
 
-    pool = multiprocessing.Pool()
-    pool.map(_write_xsq_region, jobs)
-
-    for sample in sample_files:
-        sys.stderr.write("Merging: %s\n" % sample)
-        if noz:
-            outname = '%s%s.fastq' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.fastq' % (fname, fsuffix)
-            tmp = open(tmpname, 'w')
-        else:
-            outname = '%s%s.fastq.gz' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.fastq.gz' % (fname, fsuffix)
-            tmp = gzip.open(tmpname, 'w')
-
-        for tmpfile in sample_files[sample]:
-            if noz:
-                f = open(tmpfile)
-            else:
-                f = gzip.open(tmpfile)
-
-            for line in f:
-                tmp.write(line)
-
-            f.close()
-        tmp.close()
+        out.close()
         os.rename(tmpname, outname)
     xsq.close()
 

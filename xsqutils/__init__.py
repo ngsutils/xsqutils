@@ -1,5 +1,6 @@
 import sys
 import collections
+import time
 
 import h5py
 
@@ -57,14 +58,15 @@ class XSQFile(object):
             count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
         return count
 
-    def fetch(self, sample, tags=None):
+    def fetch(self, sample, tags=None, quiet=False):
         if not tags:
             tags = [t for t in  self.tags]
 
         if not sample in self.fileobj:
             raise "Invalid sample name: %s" % sample
 
-        if ETA:
+        region_count = len(self.fileobj[sample])
+        if ETA and not quiet:
             count = 0
             for region in self.fileobj[sample]:
                 count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
@@ -78,9 +80,11 @@ class XSQFile(object):
         # This is slightly faster than just reading in one at a time.
 
         n = 0
-        for i, region in enumerate(self.fileobj[sample]):
+        start = time.time()
+        for region in self.fileobj[sample]:
             locations = []
             for y, x in self.fileobj[sample][region]['Fragments']['yxLocation']:
+                eta.print_status(n,extra="Getting locations for region: %s / %s" % (region, region_count)) 
                 locations.append((y, x))
 
             vals = {}
@@ -95,10 +99,16 @@ class XSQFile(object):
                     bases = 'ACGT'
                     wildcard = 'N'
 
-                for (y, x), basequals in zip(locations, self.fileobj[sample][region][tag][k]):
+                for (y, x), basequals in zip(locations, self.fileobj[sample][region][tag][k][:]):
+                    name = '%s_%s_%s' % (int(region), y, x)
+                    if len(tags) > 1:
+                        name = name + ' %s' % (tag)
+
                     if eta:
                         n += 1
-                        eta.print_status(n)
+                        elapsed = time.time() - start
+                        
+                        eta.print_status(n, extra='%s (%.2f reads/sec)' % (name, float(n) / elapsed))
 
                     calls = []
                     if self.tags[tag].prefix:
@@ -116,11 +126,8 @@ class XSQFile(object):
                         calls.append(call)
                         quals.append(qual)
 
-                    name = '%s_%s_%s' % (int(region), y, x)
-                    if len(tags) > 1:
-                        name = name + ' %s' % (tag)
-
                     vals[tag].append((name, ''.join(calls), quals))
+                    #yield (name, ''.join(calls), quals)
 
             for i in xrange(len(locations)):
                 for tag in tags:

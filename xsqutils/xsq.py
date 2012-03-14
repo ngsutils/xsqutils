@@ -71,6 +71,7 @@ def xsq_info(filename):
 
 def xsq_convert(filename, sample=None, tags=None, suffix=None):
     xsq = XSQFile(filename)
+
     for name, seq, quals in xsq.fetch(sample, tags):
         if suffix:
             sys.stdout.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))

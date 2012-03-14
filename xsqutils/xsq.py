@@ -82,12 +82,6 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
 def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False):
     xsq = XSQFile(filename)
     for sample in natural_sort(xsq.get_samples()):
-        if sample == 'Unclassified' and not unclassified:
-            continue
-
-        if xsq.get_read_count(sample) < minreads:
-            continue
-
         fname = sample
         if not fsuffix:
             fsuffix = ''
@@ -110,6 +104,15 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
             tmpname = '.tmp.%s%s.fastq.gz' % (fname, fsuffix)
 
         if force or not os.path.exists(outname):
+            if sample == 'Unclassified' and not unclassified:
+                sys.stderr.write(' Skipping unclassified\n')
+                continue
+
+            count = xsq.get_read_count(sample)
+            if count < minreads:
+                sys.stderr.write(' Too few reads (%s)\n' % count)
+                continue
+
             sys.stderr.write('\n')
             if noz:
                 out = open(tmpname, 'w')

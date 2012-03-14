@@ -7,6 +7,8 @@ import os
 import sys
 import gzip
 import re
+import multiprocessing
+import threading
 
 from xsqutils import XSQFile
 
@@ -80,8 +82,27 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None):
     xsq.close()
 
 
-def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False):
+def _write_xsq_region(xsq, sample, region, tmpname, noz):
+    sys.stderr.write('%s %s starting [%s]\n' % (sample, region, threading.current_thread))
+    if noz:
+        out = open(tmpname, 'w')
+    else:
+        out = gzip.open(tmpname, 'w')
+
+    for name, seq, quals in xsq.fetch_region(sample, region, tags):
+        if suffix:
+            out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
+        else:
+            out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
+    out.close()
+
+
+def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False, procs=1):
     xsq = XSQFile(filename)
+
+    jobs = []
+    sample_files = {}
+
     for sample in natural_sort(xsq.get_samples()):
         fname = sample
         if not fsuffix:
@@ -99,10 +120,10 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
 
         if noz:
             outname = '%s%s.fastq' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.fastq' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.%%s.fastq' % (fname, fsuffix)
         else:
             outname = '%s%s.fastq.gz' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.fastq.gz' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.%%s.fastq.gz' % (fname, fsuffix)
 
         if force or not os.path.exists(outname):
             if sample == 'Unclassified' and not unclassified:
@@ -115,20 +136,41 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
                 continue
 
             sys.stderr.write('\n')
-            if noz:
-                out = open(tmpname, 'w')
-            else:
-                out = gzip.open(tmpname, 'w')
 
-            for name, seq, quals in xsq.fetch(sample, tags):
-                if suffix:
-                    out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
-                else:
-                    out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
-            out.close()
-            os.rename(tmpname, outname)
+            sample_files[sample] = []
+            for region in xsq.get_regions(sample):
+                sample_files[sample].append(tmpname % region)
+                jobs.append((xsq, sample, region, tmpname % region, noz))
+
         else:
             sys.stderr.write('File exists! Not overwriting without -f\n')
+
+    pool = multiprocessing.Pool()
+    pool.map(_write_xsq_region, jobs)
+
+    for sample in sample_files:
+        sys.stderr.write("Merging: %s\n" % sample)
+        if noz:
+            outname = '%s%s.fastq' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.fastq' % (fname, fsuffix)
+            tmp = open(tmpname, 'w')
+        else:
+            outname = '%s%s.fastq.gz' % (fname, fsuffix)
+            tmpname = '.tmp.%s%s.fastq.gz' % (fname, fsuffix)
+            tmp = gzip.open(tmpname, 'w')
+
+        for tmpfile in sample_files[sample]:
+            if noz:
+                f = open(tmpfile)
+            else:
+                f = gzip.open(tmpfile)
+
+            for line in f:
+                tmp.write(line)
+
+            f.close()
+        tmp.close()
+        os.rename(tmpname, outname)
     xsq.close()
 
 
@@ -153,6 +195,8 @@ Commands:
               -noz           Don't compress the output FASTQ files with gzip
               -fsuf {val}    Add suffix to file name
               -unclassified  Export "Unclassified" library (usually skipped)
+              -procs {val}   Use {val} number of threads (CPUs) to convert one
+                             region at a time. (default 1)
 
           -n name      Convert only sample "name" (writes to stdout)
                        (can be only one, written uncompressed)
@@ -189,6 +233,7 @@ if __name__ == '__main__':
     suffix = None
     noz = False
     minreads = 0
+    procs = 1
     usedesc = False
     fsuf = None
     unclassified = False
@@ -208,10 +253,13 @@ if __name__ == '__main__':
         elif last == '-min':
             minreads = int(arg)
             last = None
+        elif last == '-procs':
+            procs = int(arg)
+            last = None
         elif last == '-fsuf':
             fsuf = arg
             last = None
-        elif arg in ['-t', '-n', '-s', '-min', '-fsuf']:
+        elif arg in ['-t', '-n', '-s', '-min', '-fsuf', '-procs']:
             last = arg
         elif arg == '-noz':
             noz = True
@@ -241,7 +289,7 @@ if __name__ == '__main__':
             xsq_info(fname)
         elif cmd == 'convert':
             if all:
-                xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads, fsuf, unclassified)
+                xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads, fsuf, unclassified, procs)
             elif sample_name:
                 if len(fnames) > 1:
                     sys.stderr.write('Too many files given! Must only convert one file at a time in this mode!\n\n')

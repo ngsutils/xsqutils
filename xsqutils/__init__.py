@@ -130,7 +130,7 @@ class XSQFile(object):
         for region in self.fileobj[sample]:
             if eta:
                 eta.print_status(n, extra="Getting locations for region: %s" % (region))
-            for tup in self.fetch_region(sample, region, tags, eta):
+            for tup in self.fetch_region(sample, region, tags):
                 if eta:
                     n += 1
                     eta.print_status(n, extra=tup[0])

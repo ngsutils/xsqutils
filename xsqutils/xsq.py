@@ -20,23 +20,6 @@ def pretty_number(n):
     return ''.join(count_l)
 
 
-def natural_sort(ar):
-    to_sort = []
-    for item in ar:
-        spl = re.split('(\d+)', item)
-        l2 = []
-        for el in spl:
-            try:
-                n = int(el)
-            except:
-                n = el
-            l2.append(n)
-        to_sort.append((l2, item))
-
-    to_sort.sort()
-    return [x[1] for x in to_sort]
-
-
 def xsq_list(filename, count=False, minreads=-1):
     xsq = XSQFile(filename)
     print 'Tags: '
@@ -48,7 +31,7 @@ def xsq_list(filename, count=False, minreads=-1):
             print '    %s[nt]' % (tag,)
     print ''
     print 'Samples: '
-    for sample in natural_sort(xsq.get_samples()):
+    for sample in xsq.get_samples():
         desc = xsq.get_sample_desc(sample)
 
         if count:
@@ -67,25 +50,29 @@ def xsq_list(filename, count=False, minreads=-1):
 
 def xsq_info(filename):
     xsq = XSQFile(filename)
-    xsq.dump('RunMetadata')
+    xsq.dump(xsq.hdf.root.RunMetadata)
     xsq.close()
 
 
-def xsq_convert(filename, sample=None, tags=None, suffix=None):
+def xsq_convert(filename, sample=None, tags=None, suffix=None, out=sys.stdout):
     xsq = XSQFile(filename)
 
-    for name, seq, quals in xsq.fetch(sample, tags):
-        if suffix:
-            sys.stdout.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
-        else:
-            sys.stdout.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
+    for region in xsq.get_regions(sample):
+        for name, seq, quals in xsq.fetch_region(sample, region, tags):
+            if suffix:
+                out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
+            else:
+                out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
     xsq.close()
+
+    if out != sys.stdout:
+        out.close()
 
 
 def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False, procs=1):
     xsq = XSQFile(filename)
 
-    for sample in natural_sort(xsq.get_samples()):
+    for sample in xsq.get_samples():
         fname = sample
         if not fsuffix:
             fsuffix = ''

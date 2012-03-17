@@ -1,7 +1,8 @@
 import sys
 import collections
+import re
 
-import h5py
+import tables
 
 Tag = collections.namedtuple('Tag', 'tag is_colorspace prefix')
 
@@ -11,23 +12,66 @@ except:
     ETA = None
 
 
+def natural_sort(ar):
+    to_sort = []
+    for item in ar:
+        spl = re.split('(\d+)', item)
+        l2 = []
+        for el in spl:
+            try:
+                n = int(el)
+            except:
+                n = el
+            l2.append(n)
+        to_sort.append((l2, item))
+
+    to_sort.sort()
+    return [x[1] for x in to_sort]
+
+
+def node_children_iter(node):
+    for k in node._v_children.keys():
+        yield (k, node._f_getChild(k))
+
+
+def get_node_attr(node, attr):
+    val = node._v_attrs[attr]
+    return convert_val(val[0], val.dtype)
+
+
+def convert_val(val, dtype):
+    if dtype in ['|S255', 'string']:
+        return val.split('\x00')[0]
+    elif dtype in ['uint8', 'int8', 'uint32']:
+        return val
+    else:
+        sys.stderr.write("Unknown dtype: *%s*\n" % dtype)
+        return val
+
+
+def node_attr_iter(node):
+    for k in node._v_attrs._v_attrnames:
+        yield (k, get_node_attr(node, k))
+
+
 class XSQFile(object):
     def __init__(self, fname):
         self.fname = fname
-        self.fileobj = h5py.File(fname, 'r')
+        self.hdf = tables.openFile(fname, 'r')
         self._samples = []
 
-        for sample in self.fileobj:
+        for sample, node in node_children_iter(self.hdf.root):
             if sample not in  ['RunMetadata', 'Indexing']:
                 self._samples.append(sample)
 
+        self._samples = natural_sort(self._samples)
+
         self.tags = {}
-        for tag in self.fileobj['RunMetadata']['TagDetails']:
-            t = self.fileobj['RunMetadata']['TagDetails'][tag]
-            self.tags[tag] = Tag(tag, t.attrs['IsColorPresent'][0] == 1, t.attrs['TagSequence'][0])
+        for tag, node in node_children_iter(self.hdf.root.RunMetadata.TagDetails):
+            self.tags[tag] = Tag(tag, get_node_attr(node, 'IsColorPresent') == 1, get_node_attr(node, 'TagSequence'))
 
     def close(self):
-        self.fileobj.close()
+        self.hdf.close()
 
     def get_samples(self):
         return self._samples
@@ -36,33 +80,44 @@ class XSQFile(object):
         if sample not in self._samples:
             return None
 
-        descidx = 0
+        descidx = -1
+        for i, name in enumerate(self.hdf.root.RunMetadata.LibraryDetails.colnames):
+            if name == 'Description':
+                descidx = i
 
-        for name, val in self.fileobj['RunMetadata']['LibraryDetails'].attrs.iteritems():
-            if name[:6] == 'FIELD_' and name[-5:] == '_NAME':
-                if val == 'Description':
-                    break
-                descidx += 1
+        if descidx == -1:
+            return None
 
-        for row in self.fileobj['RunMetadata']['LibraryDetails']:
-            spl = sample.split('_')
-            if spl[0] == row[0]:
-                return row[descidx].strip()
+        desctype = self.hdf.root.RunMetadata.LibraryDetails.coltypes['Description']
+
+        spl = sample.split('_')
+        for cols in self.hdf.root.RunMetadata.LibraryDetails.cols:
+            if cols[0] == spl[0]:
+                return convert_val(cols[descidx], desctype)
 
     def get_read_count(self, sample):
-        if not sample in self.fileobj:
+        if not sample in self._samples:
             raise "Invalid sample name: %s" % sample
         count = 0
-        for region in self.fileobj[sample]:
-            count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
+
+        for rn in self.hdf.root._f_getChild(sample)._v_children:
+            region = self.hdf.root._f_getChild(sample)._f_getChild(rn)
+            count += region._f_getChild('Fragments')._f_getChild('yxLocation').shape[0]
         return count
 
     def get_regions(self, sample):
-        return self.fileobj[sample].keys()
+        ar = self.hdf.root._f_getChild(sample)._v_children.keys()
+        ar.sort()
+        return ar
 
-    def fetch_region(self, sample, region, tags=None):
+    def fetch_region(self, sample, region_name, tags=None):
+        region_name_int = int(region_name)
+        region = self.hdf.root._f_getChild(sample)._f_getChild(region_name)
+        if not tags:
+            tags = self.tags
+
         locations = []
-        for y, x in self.fileobj[sample][region]['Fragments']['yxLocation']:
+        for y, x in region._f_getChild('Fragments')._f_getChild('yxLocation'):
             locations.append((y, x))
 
         vals = {}
@@ -77,8 +132,8 @@ class XSQFile(object):
                 bases = 'ACGT'
                 wildcard = 'N'
 
-            for (y, x), basequals in zip(locations, self.fileobj[sample][region][tag][k][:]):
-                name = '%s_%s_%s' % (int(region), y, x)
+            for (y, x), basequals in zip(locations, region._f_getChild(tag)._f_getChild(k)[:]):
+                name = '%s_%s_%s' % (region_name_int, y, x)
                 if len(tags) > 1:
                     name = name + ' %s' % (tag)
 
@@ -105,82 +160,88 @@ class XSQFile(object):
             for tag in tags:
                 yield(vals[tag][i])
 
-    def fetch(self, sample, tags=None, quiet=False):
-        if not tags:
-            tags = [t for t in  self.tags]
+    # def fetch(self, sample, tags=None, quiet=False):
+    #     if not tags:
+    #         tags = self.tags
 
-        if not sample in self.fileobj:
-            raise "Invalid sample name: %s" % sample
+    #     if not sample in self._samples:
+    #         raise "Invalid sample name: %s" % sample
 
-        if ETA and not quiet:
-            count = 0
-            for region in self.fileobj[sample]:
-                count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
-            eta = ETA(count)
-        else:
-            eta = None
+    #     if ETA and not quiet:
+    #         count = 0
+    #         for region in self.fileobj[sample]:
+    #             count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
+    #         eta = ETA(count)
+    #     else:
+    #         eta = None
 
-        # Reads each region into memory at a time by tag. Then yields the sequences
-        # in order so that the tags are interlaced.
-        #
-        # This is slightly faster than just reading in one at a time.
+    #     # Reads each region into memory at a time by tag. Then yields the sequences
+    #     # in order so that the tags are interlaced.
+    #     #
+    #     # This is slightly faster than just reading in one at a time.
 
-        n = 0
+    #     n = 0
 
-        for region in self.fileobj[sample]:
-            if eta:
-                eta.print_status(n, extra="Getting locations for region: %s" % (region))
-            for tup in self.fetch_region(sample, region, tags, eta):
-                if eta:
-                    n += 1
-                    eta.print_status(n, extra=tup[0])
-                yield tup
-        if eta:
-            eta.done()
+    #     for region in self.fileobj[sample]:
+    #         if eta:
+    #             eta.print_status(n, extra="Getting locations for region: %s" % (region))
+    #         for tup in self.fetch_region(sample, region, tags, eta):
+    #             if eta:
+    #                 n += 1
+    #                 eta.print_status(n, extra=tup[0])
+    #             yield tup
+    #     if eta:
+    #         eta.done()
 
-    def dump(self, key, parent=None, indent=0):
-        if parent is None:
-            parent = self.fileobj
+    def dump_table(self, node, indent=0):
+        spaces = '  ' * indent
+        headers = []
+        maxsize = []
+        for name in node.colnames:
+            headers.append(name)
+            maxsize.append(len(name))
+
+        values = {}
+        value_names = []
+        for cols in node.cols:
+            for i, val in enumerate(cols):
+                val1 = str(convert_val(val, node.coltypes[node.colnames[i]]))
+                if len(val1) > maxsize[i]:
+                    maxsize[i] = len(val1)
+            name = convert_val(cols[0], node.coltypes[node.colnames[0]])
+            values[name] = cols
+            value_names.append(name)
+
+        value_names = natural_sort(value_names)
+
+        sys.stdout.write(spaces + '  ')
+        sys.stdout.write(' | ')
+        for header, size in zip(headers, maxsize):
+            sys.stdout.write(header.ljust(size))
+            sys.stdout.write(' | ')
+        sys.stdout.write('\n')
+        for value_name in value_names:
+            sys.stdout.write(spaces + '  ')
+            sys.stdout.write(' | ')
+            for header, val, size in zip(headers, values[value_name], maxsize):
+                sys.stdout.write(str(convert_val(val, node.coltypes[header])).ljust(size))
+                sys.stdout.write(' | ')
+            sys.stdout.write('\n')
+
+    def dump(self, node, indent=0):
+        if node is None:
+            node = self.hdf.root
 
         spaces = '  ' * indent
 
-        print '%s[%s]' % (spaces, key)
+        print '%s[%s]' % (spaces, node._v_name)
 
-        if 'CLASS' in parent[key].attrs and parent[key].attrs['CLASS'] == 'TABLE':
-            headers = []
-            maxsize = []
-            for name, val in parent[key].attrs.iteritems():
-                if name[:6] == 'FIELD_' and name[-5:] == '_NAME':
-                    headers.append(val)
-                    maxsize.append(len(val))
-
-            values = []
-            for child in parent[key]:
-                values.append(child)
-
-            for valset in values:
-                for i, val in enumerate(valset):
-                    if len(str(val)) > maxsize[i]:
-                        maxsize[i] = len(str(val))
-
-            sys.stdout.write(spaces + '  ')
-            sys.stdout.write(' | ')
-            for header, size in zip(headers, maxsize):
-                sys.stdout.write(header.ljust(size))
-                sys.stdout.write(' | ')
-            sys.stdout.write('\n')
-            for valset in values:
-                sys.stdout.write(spaces + '  ')
-                sys.stdout.write(' | ')
-                for val, size in zip(valset, maxsize):
-                    sys.stdout.write(str(val).ljust(size))
-                    sys.stdout.write(' | ')
-                sys.stdout.write('\n')
+        if type(node) == tables.table.Table:
+            self.dump_table(node, indent)
 
         else:
-            if parent[key].attrs:
-                for name, val in parent[key].attrs.iteritems():
-                    print '%s  %s: %s' % (spaces, name, val)
+            for name, val in node_attr_iter(node):
+                print '%s  %s: %s' % (spaces, name, val)
 
-            for child in parent[key]:
-                self.dump(child, parent[key], indent + 1)
+            for name, child in node_children_iter(node):
+                self.dump(child, indent + 1)

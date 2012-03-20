@@ -6,11 +6,6 @@ import tables
 
 Tag = collections.namedtuple('Tag', 'tag is_colorspace prefix')
 
-try:
-    from eta import ETA
-except:
-    ETA = None
-
 
 def natural_sort(ar):
     to_sort = []
@@ -159,39 +154,6 @@ class XSQFile(object):
         for i in xrange(len(locations)):
             for tag in tags:
                 yield(vals[tag][i])
-
-    # def fetch(self, sample, tags=None, quiet=False):
-    #     if not tags:
-    #         tags = self.tags
-
-    #     if not sample in self._samples:
-    #         raise "Invalid sample name: %s" % sample
-
-    #     if ETA and not quiet:
-    #         count = 0
-    #         for region in self.fileobj[sample]:
-    #             count += len(self.fileobj[sample][region]['Fragments']['yxLocation'])
-    #         eta = ETA(count)
-    #     else:
-    #         eta = None
-
-    #     # Reads each region into memory at a time by tag. Then yields the sequences
-    #     # in order so that the tags are interlaced.
-    #     #
-    #     # This is slightly faster than just reading in one at a time.
-
-    #     n = 0
-
-    #     for region in self.fileobj[sample]:
-    #         if eta:
-    #             eta.print_status(n, extra="Getting locations for region: %s" % (region))
-    #         for tup in self.fetch_region(sample, region, tags, eta):
-    #             if eta:
-    #                 n += 1
-    #                 eta.print_status(n, extra=tup[0])
-    #             yield tup
-    #     if eta:
-    #         eta.done()
 
     def dump_table(self, node, indent=0):
         spaces = '  ' * indent

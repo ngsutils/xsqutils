@@ -34,20 +34,25 @@ def xsq_list(filename, count=False, minreads=-1):
             print '    %s[nt]' % (tag,)
     print ''
     print 'Samples: '
-    for sample in xsq.get_samples():
-        desc = xsq.get_sample_desc(sample)
 
-        if count:
-            readcount = xsq.get_read_count(sample)
-            if readcount > minreads:
-                pn = pretty_number(readcount)
+    try:
+        for sample in xsq.get_samples():
+            desc = xsq.get_sample_desc(sample)
 
-                if desc:
-                    print '    %s (%s) %s' % (sample, desc, pn)
-                else:
-                    print '    %s %s' % (sample, pn)
-        else:
-            print '    %s' % (sample, )
+            if count:
+                readcount = xsq.get_read_count(sample)
+                if readcount > minreads:
+                    pn = pretty_number(readcount)
+
+                    if desc:
+                        print '    %s (%s) %s' % (sample, desc, pn)
+                    else:
+                        print '    %s %s' % (sample, pn)
+            else:
+                print '    %s' % (sample, )
+    except KeyboardInterrupt:
+        pass
+
     xsq.close()
 
 
@@ -93,7 +98,9 @@ class Callback(object):
 
 
 #  TODO: Make this multi-process - add job queue? Or just workers?
-def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, out=sys.stdout, tmpdir='.'):
+def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname='-', tmpdir='.', noz=False):
+    sys.stderr.write("Converting: %s\n" % sample)
+
     if procs < 1:
         procs = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(procs)
@@ -117,7 +124,7 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, out=sys.
     pool.close()
     try:
         pool.join()
-    except:
+    except KeyboardInterrupt:
         pool.terminate()
         sys.exit(1)
 
@@ -130,6 +137,15 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, out=sys.
     else:
         callback = None
 
+    tmpname = os.path.join(tmpdir, '.tmp.%s.%s' % (os.path.basename(outname), sample, os.getpid()))
+
+    if outname == '-':
+        out = sys.stdout
+    elif noz:
+        out = open(tmpname, 'w')
+    else:
+        out = gzip.open(tmpname, 'w')
+
     for tmpname in tmpnames:
         src = gzip.open(tmpname)
         _dump_stream(src, out)
@@ -138,12 +154,18 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, out=sys.
         if callback:
             callback()
 
+    if out != sys.stdout:
+        out.close()
+        os.rename(tmpname, outname)
+
     if callback:
         callback.done()
 
 
 def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False, procs=1):
     xsq = XSQFile(filename)
+
+    samples = []
 
     for sample in xsq.get_samples():
         fname = sample
@@ -162,12 +184,8 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
 
         if noz:
             outname = '%s%s.fastq' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.fastq' % (fname, fsuffix)
-            out = open(tmpname, 'w')
         else:
             outname = '%s%s.fastq.gz' % (fname, fsuffix)
-            tmpname = '.tmp.%s%s.fastq.gz' % (fname, fsuffix)
-            out = gzip.open(tmpname, 'w')
 
         if force or not os.path.exists(outname):
             if sample == 'Unclassified' and not unclassified:
@@ -179,19 +197,11 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
                 sys.stderr.write(' Too few reads (%s)\n' % count)
                 continue
 
-            for region in xsq.get_regions(sample):
-                for name, seq, quals in xsq.fetch_region(sample, region, tags):
-                    if suffix:
-                        out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
-                    else:
-                        out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
-
-        else:
-            sys.stderr.write('File exists! Not overwriting without -f\n')
-
-        out.close()
-        os.rename(tmpname, outname)
+            samples.append((sample, outname))
     xsq.close()
+
+    for sample, outname in samples:
+        xsq_convert(sample, tags, suffix, procs, outname, noz)
 
 
 def usage():

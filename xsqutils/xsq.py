@@ -202,7 +202,7 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
     xsq.close()
 
     for sample, outname in samples:
-        xsq_convert(sample, tags, suffix, procs, outname, noz)
+        xsq_convert(filename, sample, tags, suffix, procs, outname, noz)
 
 
 def usage():

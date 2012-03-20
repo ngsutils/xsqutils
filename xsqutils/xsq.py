@@ -49,7 +49,10 @@ def xsq_list(filename, count=False, minreads=-1):
                     else:
                         print '    %s %s' % (sample, pn)
             else:
-                print '    %s' % (sample, )
+                if desc:
+                    print '    %s (%s)' % (sample, desc)
+                else:
+                    print '    %s' % (sample, )
     except KeyboardInterrupt:
         pass
 

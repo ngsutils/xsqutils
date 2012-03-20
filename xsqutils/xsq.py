@@ -84,9 +84,9 @@ class Callback(object):
         self.i = 0
         self.eta = ETA(total)
 
-    def __call__(self, result):
+    def __call__(self, result=None):
         self.i += 1
-        self.eta.print_status(self.i, extra=result.get())
+        self.eta.print_status(self.i, extra=result)
 
     def done(self):
         self.eta.done()

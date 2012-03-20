@@ -83,7 +83,7 @@ class Callback(object):
         self.i = 0
         self.eta = ETA(total)
 
-    def __call__(self, val=None):
+    def __call__(self, *args):
         self.i += 1
         self.eta.print_status(self.i)
 
@@ -92,35 +92,42 @@ class Callback(object):
 
 
 #  TODO: Make this multi-process - add job queue? Or just workers?
-def xsq_convert(filename, sample=None, tags=None, suffix=None, out=sys.stdout):
+def xsq_convert(filename, sample=None, tags=None, suffix=None, out=sys.stdout, tmpdir='.'):
     xsq = XSQFile(filename)
     pool = multiprocessing.Pool()
 
-    args = []
+    regions = []
+    tmpnames = []
     for region in xsq.get_regions(sample):
-        args.append([filename, sample, region, tags, '.tmp.%s.%s.%s.fastq.gz' % (filename, sample, region)])
-
+        regions.append(region)
+        tmpnames.append(os.path.join(tmpdir, '.tmp.%s.%s.%s.fastq.gz' % (os.path.basename(filename), sample, region)))
     xsq.close()
+
     if ETA:
-        callback = Callback(len(args))
+        callback = Callback(len(regions))
     else:
         callback = None
 
-    pool.map_async(_xsq_convert_region, args, callback=callback)
+    for region, tmpname in zip(regions, tmpnames):
+        pool.apply_async(_xsq_convert_region, (filename, sample, region, tags, tmpname), callback=callback)
+
+    pool.close()
     pool.join()
+
     if callback:
         callback.done()
 
     sys.stderr.write("Merging temp files...\n")
     if ETA:
-        callback = Callback(len(args))
+        callback = Callback(len(regions))
     else:
         callback = None
 
-    for tup in args:
-        src = gzip.open(tup[-1])
+    for tmpname in tmpnames:
+        src = gzip.open(tmpname)
         _dump_stream(src, out)
         src.close()
+        os.unlink(tmpname)
         if callback:
             callback()
 

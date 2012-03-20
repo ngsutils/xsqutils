@@ -68,9 +68,10 @@ def _xsq_convert_region(filename, sample, region, tags, outname):
             out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
     xsq.close()
     out.close()
+    return region
 
 
-def _dump_stream(src, dest, chunk_size=4 * 1024 * 1024):
+def _dump_stream(src, dest, chunk_size=4 * 1024 * 1024):  # use 4MB chunk to read/write
     while True:
         buf = src.read(chunk_size)
         dest.write(buf)
@@ -83,19 +84,21 @@ class Callback(object):
         self.i = 0
         self.eta = ETA(total)
 
-    def __call__(self, *args):
+    def __call__(self, result):
         self.i += 1
-        self.eta.print_status(self.i)
+        self.eta.print_status(self.i, extra=result.get())
 
     def done(self):
         self.eta.done()
 
 
 #  TODO: Make this multi-process - add job queue? Or just workers?
-def xsq_convert(filename, sample=None, tags=None, suffix=None, out=sys.stdout, tmpdir='.'):
-    xsq = XSQFile(filename)
-    pool = multiprocessing.Pool()
+def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, out=sys.stdout, tmpdir='.'):
+    if procs < 1:
+        procs = multiprocessing.cpu_count()
+    pool = multiprocessing.Pool(procs)
 
+    xsq = XSQFile(filename)
     regions = []
     tmpnames = []
     for region in xsq.get_regions(sample):
@@ -208,26 +211,26 @@ Commands:
               -noz           Don't compress the output FASTQ files with gzip
               -fsuf {val}    Add suffix to file name
               -unclassified  Export "Unclassified" library (usually skipped)
-              -procs {val}   Use {val} number of threads (CPUs) to convert one
-                             region at a time. (default 1)
 
-          -n name      Convert only sample "name" (writes to stdout)
-                       (can be only one, written uncompressed)
-          -s suffix    Append a suffix to all read names
-          -t tag       Convert only this tag (can be more than one)
-                       If more than one tag is given, the sequences for
-                       each read will be written out together.
-                          For example:
-                          @read1 F3
-                          F3 seq
-                          +
-                          F3 qual
-                          @read1 R5
-                          R5 seq
-                          +
-                          R5 qual
-                          @read2
-                          ...
+          -n name        Convert only sample "name" (writes to stdout)
+                         (can be only one, written uncompressed)
+          -procs {val}   Use {val} number of threads (CPUs) to convert one
+                         region at a time. (default 1)
+          -s suffix      Append a suffix to all read names
+          -t tag         Convert only this tag (can be more than one)
+                         If more than one tag is given, the sequences for
+                         each read will be written out together.
+                           For example:
+                           @read1 F3
+                           F3 seq
+                           +
+                           F3 qual
+                           @read1 R5
+                           R5 seq
+                           +
+                           R5 qual
+                           @read2
+                           ...
 
         The default is to convert all samples and all fragments/tags.
 '''
@@ -307,7 +310,7 @@ if __name__ == '__main__':
                 if len(fnames) > 1:
                     sys.stderr.write('Too many files given! Must only convert one file at a time in this mode!\n\n')
                     usage()
-                xsq_convert(fname, sample_name, tags, suffix)
+                xsq_convert(fname, sample_name, tags, suffix, procs)
             else:
                 sys.stderr.write('Missing argument! Must specify "-a" or "-n sample"\n\n')
                 usage()

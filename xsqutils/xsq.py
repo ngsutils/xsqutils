@@ -115,7 +115,11 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, out=sys.
         pool.apply_async(_xsq_convert_region, (filename, sample, region, tags, tmpname), callback=callback)
 
     pool.close()
-    pool.join()
+    try:
+        pool.join()
+    except:
+        pool.terminate()
+        sys.exit(1)
 
     if callback:
         callback.done()

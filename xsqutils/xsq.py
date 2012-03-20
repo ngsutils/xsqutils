@@ -6,11 +6,14 @@ Converts XSQ files to FASTQ format
 import os
 import sys
 import gzip
-import re
 import multiprocessing
-import threading
 
 from xsqutils import XSQFile
+
+try:
+    from eta import ETA
+except:
+    ETA = None
 
 
 def pretty_number(n):
@@ -54,19 +57,75 @@ def xsq_info(filename):
     xsq.close()
 
 
-def xsq_convert(filename, sample=None, tags=None, suffix=None, out=sys.stdout):
+def _xsq_convert_region(filename, sample, region, tags, outname):
+    out = gzip.open(outname, 'w')
     xsq = XSQFile(filename)
 
-    for region in xsq.get_regions(sample):
-        for name, seq, quals in xsq.fetch_region(sample, region, tags):
-            if suffix:
-                out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
-            else:
-                out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
+    for name, seq, quals in xsq.fetch_region(sample, region, tags):
+        if suffix:
+            out.write('@%s%s\n%s\n+\n%s\n' % (name, suffix, seq, ''.join([chr(q + 33) for q in quals])))
+        else:
+            out.write('@%s\n%s\n+\n%s\n' % (name, seq, ''.join([chr(q + 33) for q in quals])))
     xsq.close()
+    out.close()
 
-    if out != sys.stdout:
-        out.close()
+
+def _dump_stream(src, dest, chunk_size=4 * 1024 * 1024):
+    while True:
+        buf = src.read(chunk_size)
+        dest.write(buf)
+        if len(buf) < chunk_size:
+            return
+
+
+class Callback(object):
+    def __init__(self, total):
+        self.i = 0
+        self.eta = ETA(total)
+
+    def __call__(self, val=None):
+        self.i += 1
+        self.eta.print_status(self.i)
+
+    def done(self):
+        self.eta.done()
+
+
+#  TODO: Make this multi-process - add job queue? Or just workers?
+def xsq_convert(filename, sample=None, tags=None, suffix=None, out=sys.stdout):
+    xsq = XSQFile(filename)
+    pool = multiprocessing.Pool()
+
+    args = []
+    for region in xsq.get_regions(sample):
+        args.append([filename, sample, region, tags, '.tmp.%s.%s.%s.fastq.gz' % (filename, sample, region)])
+
+    xsq.close()
+    if ETA:
+        callback = Callback(len(args))
+    else:
+        callback = None
+
+    pool.map_async(_xsq_convert_region, args, callback=callback)
+    pool.join()
+    if callback:
+        callback.done()
+
+    sys.stderr.write("Merging temp files...\n")
+    if ETA:
+        callback = Callback(len(args))
+    else:
+        callback = None
+
+    for tup in args:
+        src = gzip.open(tup[-1])
+        _dump_stream(src, out)
+        src.close()
+        if callback:
+            callback()
+
+    if callback:
+        callback.done()
 
 
 def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False, procs=1):

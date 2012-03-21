@@ -94,7 +94,7 @@ class Callback(object):
 
     def __call__(self, result=None):
         self.i += 1
-        self.eta.print_status(self.i, extra=result)
+        self.eta.print_status(self.i, extra=result if result else '')
 
     def done(self):
         self.eta.done()
@@ -149,11 +149,11 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname=
     else:
         out = gzip.open(tmpname, 'w')
 
-    for tmpname in tmpnames:
-        src = gzip.open(tmpname)
+    for tmp in tmpnames:
+        src = gzip.open(tmp)
         _dump_stream(src, out)
         src.close()
-        os.unlink(tmpname)
+        os.unlink(tmp)
         if callback:
             callback()
 

@@ -149,11 +149,11 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname=
     else:
         out = gzip.open(tmpname, 'w')
 
-    for tmpname in tmpnames:
-        src = gzip.open(tmpname)
+    for tmp in tmpnames:
+        src = gzip.open(tmp)
         _dump_stream(src, out)
         src.close()
-        os.unlink(tmpname)
+        os.unlink(tmp)
         if callback:
             callback()
 

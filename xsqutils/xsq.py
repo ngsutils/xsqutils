@@ -94,7 +94,7 @@ class Callback(object):
 
     def __call__(self, result=None):
         self.i += 1
-        self.eta.print_status(self.i, extra=result)
+        self.eta.print_status(self.i, extra=result if result else '')
 
     def done(self):
         self.eta.done()

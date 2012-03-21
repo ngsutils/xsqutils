@@ -140,7 +140,7 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname=
     else:
         callback = None
 
-    tmpname = os.path.join(tmpdir, '.tmp.%s.%s' % (os.path.basename(outname), sample, os.getpid()))
+    tmpname = os.path.join(tmpdir, '.tmp.%s.%s.%s' % (os.path.basename(outname), sample, os.getpid()))
 
     if outname == '-':
         out = sys.stdout

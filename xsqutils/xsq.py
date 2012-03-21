@@ -199,9 +199,10 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
             if count < minreads:
                 sys.stderr.write(' Too few reads (%s)\n' % count)
                 continue
-            sys.stderr.write('\n')
 
             samples.append((sample, outname))
+        sys.stderr.write('\n')
+
     xsq.close()
 
     for sample, outname in samples:

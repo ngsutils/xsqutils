@@ -62,6 +62,8 @@ def xsq_list(filename, count=False, minreads=-1, total=False):
     if count and total:
         print ''
         print '    Total reads => %s' % pretty_number(acc)
+    
+    print ''
 
     xsq.close()
 

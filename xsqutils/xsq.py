@@ -23,7 +23,7 @@ def pretty_number(n):
     return ''.join(count_l)
 
 
-def xsq_list(filename, count=False, minreads=-1):
+def xsq_list(filename, count=False, minreads=-1, total=False):
     xsq = XSQFile(filename)
     print 'Tags: '
     for tag in xsq.tags:
@@ -35,14 +35,17 @@ def xsq_list(filename, count=False, minreads=-1):
     print ''
     print 'Samples: '
 
+    acc = 0
     try:
         for sample in xsq.get_samples():
-            desc = xsq.get_sample_desc(sample)
+            desc = xsq.get_sample_desc(sample).strip()
 
             if count:
                 readcount = xsq.get_read_count(sample)
                 if readcount > minreads:
                     pn = pretty_number(readcount)
+                    if sample != 'Unclassified':
+                        acc += readcount
 
                     if desc:
                         print '    %s (%s) %s' % (sample, desc, pn)
@@ -55,6 +58,10 @@ def xsq_list(filename, count=False, minreads=-1):
                     print '    %s' % (sample, )
     except KeyboardInterrupt:
         pass
+
+    if count and total:
+        print ''
+        print '    Total reads => %s' % pretty_number(acc)
 
     xsq.close()
 
@@ -219,6 +226,8 @@ Commands:
         Options:
           -c           Show the number of reads present for each tag
           -min {val}   Hide samples that have less than {val} reads
+          -total       Calculate the total number of reads
+                       (Requires -c, only counts samples that meet -min)
 
     convert   - Converts XSQ samples and fragments to FASTQ format
         Options:
@@ -272,6 +281,7 @@ if __name__ == '__main__':
     usedesc = False
     fsuf = None
     unclassified = False
+    total = False
 
     for arg in sys.argv[1:]:
         if not cmd and arg in ['list', 'convert', 'info']:
@@ -296,6 +306,8 @@ if __name__ == '__main__':
             last = None
         elif arg in ['-t', '-n', '-s', '-min', '-fsuf', '-procs']:
             last = arg
+        elif arg == '-total':
+            total = True
         elif arg == '-noz':
             noz = True
         elif arg == '-c':
@@ -319,7 +331,7 @@ if __name__ == '__main__':
     for fname in fnames:
         sys.stderr.write('[%s]\n' % fname)
         if cmd == 'list':
-            xsq_list(fname, count, minreads)
+            xsq_list(fname, count, minreads, total)
         elif cmd == 'info':
             xsq_info(fname)
         elif cmd == 'convert':

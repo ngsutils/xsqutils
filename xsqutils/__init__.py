@@ -87,7 +87,7 @@ class XSQFile(object):
 
         spl = sample.split('_')
         for cols in self.hdf.root.RunMetadata.LibraryDetails.cols:
-            if cols[0] == spl[0]:
+            if convert_val(cols[0],self.hdf.root.RunMetadata.LibraryDetails.coltypes['LibraryName']) == spl[0]:
                 return convert_val(cols[descidx], desctype)
 
     def get_read_count(self, sample):

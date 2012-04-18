@@ -331,7 +331,7 @@ if __name__ == '__main__':
         usage()
 
     for fname in fnames:
-        sys.stderr.write('[%s]\n' % fname)
+        sys.stdout.write('[%s]\n' % fname)
         if cmd == 'list':
             xsq_list(fname, count, minreads, total)
         elif cmd == 'info':

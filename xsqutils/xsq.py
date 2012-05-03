@@ -7,6 +7,7 @@ import os
 import sys
 import gzip
 import multiprocessing
+import shutil
 
 from xsqutils import XSQFile
 
@@ -170,7 +171,7 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname=
 
     if out != sys.stdout:
         out.close()
-        os.rename(tmpname, outname)
+        shutil.move(tmpname, outname)
 
     if callback:
         callback.done()

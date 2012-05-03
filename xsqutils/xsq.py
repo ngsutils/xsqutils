@@ -62,7 +62,7 @@ def xsq_list(filename, count=False, minreads=-1, total=False):
     if count and total:
         print ''
         print '    Total reads => %s' % pretty_number(acc)
-    
+
     print ''
 
     xsq.close()
@@ -110,8 +110,10 @@ class Callback(object):
 
 
 #  TODO: Make this multi-process - add job queue? Or just workers?
-def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname='-', tmpdir='.', noz=False):
+def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname='-', tmpdir=None, noz=False):
     sys.stderr.write("Converting: %s\n" % sample)
+    if tmpdir is None:
+        tmpdir = '.'
 
     if procs < 1:
         procs = multiprocessing.cpu_count()
@@ -122,7 +124,7 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname=
     tmpnames = []
     for region in xsq.get_regions(sample):
         regions.append(region)
-        tmpnames.append(os.path.join(tmpdir, '.tmp.%s.%s.%s.fastq.gz' % (os.path.basename(filename), sample, region)))
+        tmpnames.append(os.path.join(tmpdir, '.tmp.%s.%s.%s.fastq.gz.%s' % (os.path.basename(filename), sample, region, os.getpid())))
     xsq.close()
 
     if ETA:
@@ -174,7 +176,7 @@ def xsq_convert(filename, sample=None, tags=None, suffix=None, procs=1, outname=
         callback.done()
 
 
-def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False, procs=1):
+def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, usedesc=False, minreads=0, fsuffix=None, unclassified=False, procs=1, tmpdir=None):
     xsq = XSQFile(filename)
 
     samples = []
@@ -215,7 +217,7 @@ def xsq_convert_all(filename, tags=None, force=False, suffix=None, noz=False, us
     xsq.close()
 
     for sample, outname in samples:
-        xsq_convert(filename, sample, tags, suffix, procs=procs, outname=outname, noz=noz)
+        xsq_convert(filename, sample, tags, suffix, procs=procs, outname=outname, noz=noz, tmpdir=tmpdir)
 
 
 def usage():
@@ -247,6 +249,7 @@ Commands:
           -procs {val}   Use {val} number of threads (CPUs) to convert one
                          region at a time. (default 1)
           -s suffix      Append a suffix to all read names
+          -T dir         Use this directory for temporary files
           -t tag         Convert only this tag (can be more than one)
                          If more than one tag is given, the sequences for
                          each read will be written out together.
@@ -284,6 +287,7 @@ if __name__ == '__main__':
     fsuf = None
     unclassified = False
     total = False
+    tmpdir = None
 
     for arg in sys.argv[1:]:
         if not cmd and arg in ['list', 'convert', 'info']:
@@ -303,10 +307,13 @@ if __name__ == '__main__':
         elif last == '-procs':
             procs = int(arg)
             last = None
+        elif last == '-T':
+            tmpdir = arg
+            last = None
         elif last == '-fsuf':
             fsuf = arg
             last = None
-        elif arg in ['-t', '-n', '-s', '-min', '-fsuf', '-procs']:
+        elif arg in ['-t', '-n', '-s', '-min', '-fsuf', '-procs', '-T']:
             last = arg
         elif arg == '-total':
             total = True
@@ -338,12 +345,12 @@ if __name__ == '__main__':
             xsq_info(fname)
         elif cmd == 'convert':
             if all:
-                xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads, fsuf, unclassified, procs)
+                xsq_convert_all(fname, tags, force, suffix, noz, usedesc, minreads, fsuf, unclassified, procs, tmpdir=tmpdir)
             elif sample_name:
                 if len(fnames) > 1:
                     sys.stderr.write('Too many files given! Must only convert one file at a time in this mode!\n\n')
                     usage()
-                xsq_convert(fname, sample_name, tags, suffix, procs)
+                xsq_convert(fname, sample_name, tags, suffix, procs, tmpdir=tmpdir)
             else:
                 sys.stderr.write('Missing argument! Must specify "-a" or "-n sample"\n\n')
                 usage()
